@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stem Splitter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #7c5af0;
+      --accent-light: #9b7ff5;
+      --text: #e8e8f0;
+      --muted: #6b6b88;
+      --success: #4ade80;
+      --error: #f87171;
+      --vocals: #f472b6;
+      --drums: #fb923c;
+      --bass: #60a5fa;
+      --other: #a78bfa;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-light), #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.4rem;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 90, 240, 0.08);
+    }
+
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    #drop-zone p { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+    #drop-zone strong { color: var(--text); }
+    #file-name { margin-top: 0.5rem; color: var(--accent-light); font-size: 0.85rem; font-weight: 500; }
+
+    /* Upload button */
+    #upload-btn {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.8rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    #upload-btn:hover:not(:disabled) { background: var(--accent-light); }
+    #upload-btn:active:not(:disabled) { transform: scale(0.98); }
+    #upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Status */
+    #status-section { margin-top: 1.75rem; display: none; }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 999px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), #c084fc);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-bar.indeterminate {
+      width: 40%;
+      animation: slide 1.4s infinite ease-in-out;
+    }
+
+    @keyframes slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    #status-text {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    #error-msg {
+      color: var(--error);
+      font-size: 0.875rem;
+      padding: 0.75rem 1rem;
+      background: rgba(248, 113, 113, 0.1);
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    /* Stems grid */
+    #stems-section { margin-top: 1.75rem; display: none; }
+
+    #stems-section h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .stems-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .stem-card {
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      border: 1px solid transparent;
+    }
+
+    .stem-card.vocals  { background: rgba(244,114,182,0.08); border-color: rgba(244,114,182,0.3); }
+    .stem-card.drums   { background: rgba(251,146, 60,0.08); border-color: rgba(251,146, 60,0.3); }
+    .stem-card.bass    { background: rgba( 96,165,250,0.08); border-color: rgba( 96,165,250,0.3); }
+    .stem-card.other   { background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.3); }
+
+    .stem-icon { font-size: 1.5rem; }
+    .stem-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stem-card.vocals  .stem-label { color: var(--vocals); }
+    .stem-card.drums   .stem-label { color: var(--drums); }
+    .stem-card.bass    .stem-label { color: var(--bass); }
+    .stem-card.other   .stem-label { color: var(--other); }
+
+    .stem-card audio {
+      width: 100%;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .dl-btn:hover { opacity: 0.85; }
+
+    .stem-card.vocals  .dl-btn { background: rgba(244,114,182,0.25); color: var(--vocals); }
+    .stem-card.drums   .dl-btn { background: rgba(251,146, 60,0.25); color: var(--drums); }
+    .stem-card.bass    .dl-btn { background: rgba( 96,165,250,0.25); color: var(--bass); }
+    .stem-card.other   .dl-btn { background: rgba(167,139,250,0.25); color: var(--other); }
+
+    #reset-btn {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.65rem;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    #reset-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    footer {
+      margin-top: 2.5rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Stem Splitter</h1>
+  <p>Separate any song into vocals, drums, bass & other — powered by Demucs</p>
+</header>
+
+<div class="card">
+
+  <!-- Upload area -->
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac" />
+    <div class="upload-icon">🎵</div>
+    <p><strong>Drop your audio file here</strong><br>or click to browse</p>
+    <p>MP3 · WAV · FLAC · OGG · M4A · AAC &nbsp;|&nbsp; max 200 MB</p>
+    <p id="file-name"></p>
+  </div>
+
+  <button id="upload-btn" disabled>Split Stems</button>
+
+  <!-- Error -->
+  <div id="error-msg"></div>
+
+  <!-- Progress -->
+  <div id="status-section">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar indeterminate" id="progress-bar"></div>
+    </div>
+    <p id="status-text">Uploading…</p>
+  </div>
+
+  <!-- Results -->
+  <div id="stems-section">
+    <h2>Stems</h2>
+    <div class="stems-grid" id="stems-grid"></div>
+    <button id="reset-btn">↩ Split another song</button>
+  </div>
+
+</div>
+
+<footer>Processing may take 1–5 minutes depending on song length &amp; your hardware.</footer>
+
+<script>
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const fileNameEl = document.getElementById('file-name');
+  const uploadBtn  = document.getElementById('upload-btn');
+  const errorMsg   = document.getElementById('error-msg');
+  const statusSec  = document.getElementById('status-section');
+  const progressBar= document.getElementById('progress-bar');
+  const statusText = document.getElementById('status-text');
+  const stemsSec   = document.getElementById('stems-section');
+  const stemsGrid  = document.getElementById('stems-grid');
+  const resetBtn   = document.getElementById('reset-btn');
+
+  let selectedFile = null;
+  let pollTimer    = null;
+  let currentJobId = null;
+
+  const STEM_META = {
+    vocals: { icon: '🎤', label: 'Vocals' },
+    drums:  { icon: '🥁', label: 'Drums'  },
+    bass:   { icon: '🎸', label: 'Bass'   },
+    other:  { icon: '🎹', label: 'Other'  },
+  };
+
+  // Drag & drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    selectedFile = file;
+    fileNameEl.textContent = `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+    uploadBtn.disabled = false;
+    hideError();
+  }
+
+  uploadBtn.addEventListener('click', startUpload);
+  resetBtn.addEventListener('click', reset);
+
+  async function startUpload() {
+    if (!selectedFile) return;
+
+    uploadBtn.disabled = true;
+    showStatus('Uploading…');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Upload failed'); return; }
+
+      currentJobId = data.job_id;
+      poll(currentJobId);
+    } catch (e) {
+      showError('Network error: ' + e.message);
+    }
+  }
+
+  function poll(jobId) {
+    pollTimer = setInterval(async () => {
+      try {
+        const res  = await fetch(`/status/${jobId}`);
+        const data = await res.json();
+
+        if (data.status === 'queued' || data.status === 'processing') {
+          statusText.textContent = data.status === 'queued'
+            ? 'Queued — waiting to start…'
+            : 'Processing… (this may take a few minutes)';
+          return;
+        }
+
+        clearInterval(pollTimer);
+
+        if (data.status === 'done') {
+          showStems(jobId, data.stems);
+        } else {
+          showError(data.error || 'Processing failed');
+          statusSec.style.display = 'none';
+        }
+
+      } catch (e) {
+        clearInterval(pollTimer);
+        showError('Lost connection to server.');
+      }
+    }, 2500);
+  }
+
+  function showStems(jobId, stems) {
+    statusSec.style.display = 'none';
+    stemsGrid.innerHTML = '';
+
+    stems.forEach(filename => {
+      const key = filename.replace('.wav', '').toLowerCase();
+      const meta = STEM_META[key] || { icon: '🎵', label: key };
+      const cssClass = Object.keys(STEM_META).includes(key) ? key : 'other';
+
+      const card = document.createElement('div');
+      card.className = `stem-card ${cssClass}`;
+      card.innerHTML = `
+        <span class="stem-icon">${meta.icon}</span>
+        <span class="stem-label">${meta.label}</span>
+        <audio controls preload="none" src="/download/${jobId}/${encodeURIComponent(filename)}"></audio>
+        <a class="dl-btn" href="/download/${jobId}/${encodeURIComponent(filename)}" download="${filename}">
+          ⬇ Download
+        </a>
+      `;
+      stemsGrid.appendChild(card);
+    });
+
+    stemsSec.style.display = 'block';
+  }
+
+  function showStatus(msg) {
+    hideError();
+    statusText.textContent = msg;
+    statusSec.style.display = 'block';
+    stemsSec.style.display  = 'none';
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = '⚠ ' + msg;
+    errorMsg.style.display = 'block';
+    statusSec.style.display = 'none';
+    uploadBtn.disabled = !selectedFile;
+  }
+
+  function hideError() {
+    errorMsg.style.display = 'none';
+  }
+
+  function reset() {
+    clearInterval(pollTimer);
+    selectedFile  = null;
+    currentJobId  = null;
+    fileNameEl.textContent = '';
+    fileInput.value = '';
+    uploadBtn.disabled   = true;
+    statusSec.style.display = 'none';
+    stemsSec.style.display  = 'none';
+    hideError();
+  }
+</script>
+</body>
+</html>
