@@ -12,10 +12,11 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_DIR = Path("uploads")
-OUTPUT_DIR = Path("outputs")
-UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+_DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
+UPLOAD_DIR = _DATA_DIR / "uploads"
+OUTPUT_DIR = _DATA_DIR / "outputs"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"}
 MAX_FILE_MB = 200
