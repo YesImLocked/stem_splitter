@@ -1,13 +1,13 @@
 services:
   - type: web
     name: stem-splitter
-    runtime: docker
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: gunicorn app:app --timeout 600 --workers 1
     plan: free
     envVars:
       - key: DATA_DIR
         value: /mnt/data
-      - key: TORCH_HOME
-        value: /mnt/data/.torch
     disk:
       name: stem-splitter-data
       mountPath: /mnt/data
